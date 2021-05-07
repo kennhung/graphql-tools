@@ -1,0 +1,20 @@
+{
+  "name": "graphql-tools",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "KennHuang",
+  "license": "MIT",
+  "description": "",
+  "dependencies": {
+    "@graphql-inspector/core": "^2.5.0",
+    "@graphql-tools/load": "^6.2.8",
+    "@graphql-tools/url-loader": "^6.10.0",
+    "express": "^4.17.1",
+    "graphql-voyager": "^1.0.0-rc.31",
+    "http-proxy-middleware": "^1.3.1"
+  }
+}

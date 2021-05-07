@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-wEmeIV1mKuiNpC+IOBjI7aAzPcEZeedi5yW5f2yOq55WWLwNGmvvx4Um1vskeMj0" crossorigin="anonymous">
+
+    <title>Graphql Diff Tool</title>
+</head>
+
+<body>
+    <select id="type_options">
+        <option>all</option>
+    </select>
+
+    <select id="level_options">
+        <option>all</option>
+    </select>
+
+    <div>
+        Unchecked: <span id="uncheckedCount">n/a</span>
+        Checked: <span id="checkedCount">n/a</span>
+    </div>
+
+    <table class="table">
+        <thead>
+            <tr>
+                <th scope="col"></th>
+                <th scope="col">#</th>
+                <th scope="col">Path</th>
+                <th scope="col">Message</th>
+            </tr>
+        </thead>
+        <tbody id="tbody">
+        </tbody>
+    </table>
+
+    <script>
+        const req = new XMLHttpRequest();
+
+        let diffArray;
+        function getChecked() {
+            return JSON.parse(window.localStorage.getItem('checked') || '[]')
+        }
+
+        const tbody = document.getElementById('tbody');
+
+        function appendOne(diff, num, checked) {
+            const tr = document.createElement('tr');
+
+            switch (diff.criticality.level) {
+                case 'BREAKING':
+                    tr.setAttribute('class', 'table-danger');
+                    break;
+                case 'DANGEROUS':
+                    tr.setAttribute('class', 'table-warning');
+                    break;
+                case 'NON_BREAKING':
+                    tr.setAttribute('class', 'table-success');
+                    break;
+                default:
+                    break;
+            }
+
+            const checkBox = document.createElement('input');
+            checkBox.setAttribute('type', 'checkbox');
+            checkBox.setAttribute('value', JSON.stringify(diff));
+            checkBox.setAttribute('class', 'cb');
+
+            if (checked) {
+                checkBox.setAttribute('checked', true);
+            }
+
+            checkBox.onclick = function (e) {
+                console.log(e.target.getAttribute('value'));
+                let checkedList = getChecked();
+                if (checked) {
+                    checkedList = checkedList.filter((v) => v.message !== diff.message);
+                } else {
+                    checkedList.push(diff);
+                }
+
+                window.localStorage.setItem('checked', JSON.stringify(checkedList));
+
+                putList();
+            }
+
+            const checkBoxTh = document.createElement('th');
+            checkBoxTh.appendChild(checkBox);
+
+            const numTd = document.createElement('td');
+            numTd.innerText = `${num}`;
+
+            const pathTd = document.createElement('td');
+            pathTd.innerText = diff.path || 'n/a';
+
+            const messageTd = document.createElement('td');
+            messageTd.innerText = diff.message;
+
+            tr.appendChild(checkBoxTh);
+            tr.appendChild(numTd);
+            tr.appendChild(pathTd);
+            tr.appendChild(messageTd);
+
+            tbody.appendChild(tr);
+        }
+
+
+        function putList() {
+            tbody.innerHTML = '';
+
+            const typeSelected = window.localStorage.getItem('typeSelected') || 'all';
+            const levelSelected = window.localStorage.getItem('levelSelected') || 'all';
+
+            {
+                const availableTypes = {
+                    'all': true
+                };
+                diffArray.forEach((v) => {
+                    availableTypes[v.type] = true;
+                });
+
+                document.getElementById('type_options').innerHTML = '';
+                Object.keys(availableTypes).forEach((v) => {
+                    const option = document.createElement('option');
+                    option.innerText = v;
+
+                    if (typeSelected === v) {
+                        option.setAttribute('selected', true);
+                    }
+
+                    document.getElementById('type_options').appendChild(option);
+                });
+            }
+
+            {
+                const availableLevels = {
+                    all: true
+                };
+                diffArray.forEach((v) => {
+                    availableLevels[v.criticality.level] = true;
+                });
+
+                document.getElementById('level_options').innerHTML = '';
+                Object.keys(availableLevels).forEach((v) => {
+                    const option = document.createElement('option');
+                    option.innerText = v;
+
+                    if (levelSelected === v) {
+                        option.setAttribute('selected', true);
+                    }
+
+                    document.getElementById('level_options').appendChild(option);
+                });
+            }
+
+            const list = diffArray.map((diff, i) => {
+                return {
+                    diff,
+                    num: i,
+                    checked: getChecked().findIndex((v) => v.message === diff.message) !== -1
+                };
+            }).filter((v) => {
+                return (v.diff.type === typeSelected || typeSelected === 'all') &&
+                    (v.diff.criticality.level === levelSelected || levelSelected === 'all');
+            });
+
+            const checkedCount = list.filter((v) => v.checked).length;
+            document.getElementById('checkedCount').innerText = checkedCount;
+            document.getElementById('uncheckedCount').innerText = list.length - checkedCount;
+
+            list.sort((a, b) => {
+                if (a.checked && !b.checked) {
+                    return 1;
+                }
+                if (!a.checked && b.checked) {
+                    return -1;
+                }
+                return 0;
+            });
+
+            list.forEach(({ diff, num, checked }) => appendOne(diff, num, checked));
+        }
+
+        req.onloadend = function () {
+            diffArray = JSON.parse(req.response);
+            putList();
+        }
+        req.open('get', '/diff');
+        req.send();
+
+        document.getElementById('type_options').onchange = (e) => {
+            window.localStorage.setItem('typeSelected', e.target.value);
+            putList();
+        };
+
+        document.getElementById('level_options').onchange = (e) => {
+            window.localStorage.setItem('levelSelected', e.target.value);
+            putList();
+        };
+
+    </script>
+
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-p34f1UUtsS3wqzfto5wAAmdvj+osOnFyQFpp4Ua3gs/ZVWx6oOypYoCJhGGScy+8"
+        crossorigin="anonymous"></script>
+</body>
+
+</html>
